@@ -12,6 +12,11 @@ const startOverlay = document.getElementById("start-overlay");
 const gameOverOverlay = document.getElementById("game-over-overlay");
 const startButton = document.getElementById("start-button");
 const restartButton = document.getElementById("restart-button");
+const pauseButton = document.getElementById("pause-button");
+const joystickPad = document.getElementById("joystick-pad");
+const joystickThumb = document.getElementById("joystick-thumb");
+const dashButton = document.getElementById("dash-button");
+const focusButton = document.getElementById("focus-button");
 
 const DIRECTIONS = ["down", "up", "left", "right"];
 const DIRECTION_LABELS = {
@@ -24,15 +29,24 @@ const DIRECTION_LABELS = {
 class InputManager {
   constructor() {
     this.keys = new Set();
+    this.virtualKeys = new Set();
+    this.pressQueue = [];
+    this.pointerState = null;
     window.addEventListener("keydown", (event) => this.keys.add(event.key.toLowerCase()));
     window.addEventListener("keyup", (event) => this.keys.delete(event.key.toLowerCase()));
   }
 
   isPressed(...codes) {
-    return codes.some((code) => this.keys.has(code));
+    return codes.some((code) => this.keys.has(code) || this.virtualKeys.has(code));
   }
 
   consumePress(...codes) {
+    const queuedIndex = this.pressQueue.findIndex((code) => codes.includes(code));
+    if (queuedIndex !== -1) {
+      this.pressQueue.splice(queuedIndex, 1);
+      return true;
+    }
+
     for (const code of codes) {
       if (this.keys.has(code)) {
         this.keys.delete(code);
@@ -41,6 +55,39 @@ class InputManager {
     }
 
     return false;
+  }
+
+  setVirtualKey(code, active) {
+    if (active) {
+      this.virtualKeys.add(code);
+    } else {
+      this.virtualKeys.delete(code);
+    }
+  }
+
+  clearVirtualMovement() {
+    this.virtualKeys.delete("arrowleft");
+    this.virtualKeys.delete("arrowright");
+    this.virtualKeys.delete("arrowup");
+    this.virtualKeys.delete("arrowdown");
+  }
+
+  queuePress(code) {
+    this.pressQueue.push(code);
+  }
+
+  setPointerState(state) {
+    this.pointerState = state;
+  }
+
+  clearPointerState() {
+    this.pointerState = null;
+  }
+}
+
+function vibrate(pattern) {
+  if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+    navigator.vibrate(pattern);
   }
 }
 
@@ -167,6 +214,18 @@ class Player {
     }
     if (input.isPressed("arrowdown", "s")) {
       this.vy += moveAcceleration * deltaTime;
+    }
+
+    if (input.pointerState) {
+      const pointerDx = input.pointerState.x - this.x;
+      const pointerDy = input.pointerState.y - this.y;
+      const pointerDistance = Math.hypot(pointerDx, pointerDy);
+
+      if (pointerDistance > 18) {
+        const pointerScale = Math.min(pointerDistance / 120, 1);
+        this.vx += (pointerDx / pointerDistance) * moveAcceleration * 0.9 * pointerScale * deltaTime;
+        this.vy += (pointerDy / pointerDistance) * moveAcceleration * 0.9 * pointerScale * deltaTime;
+      }
     }
 
     this.vx += gravityVector.x * gravityStrength * deltaTime;
@@ -468,6 +527,7 @@ class Game {
     this.bestScore = Number(localStorage.getItem("gravity-panic-best") || 0);
     this.lastTime = 0;
     this.animationFrame = null;
+    this.paused = false;
 
     this.backgroundOrbs = Array.from({ length: 10 }, () => ({
       x: Math.random(),
@@ -528,9 +588,14 @@ class Game {
   start() {
     this.resetState();
     this.running = true;
+    this.paused = false;
     this.sound.playStart();
     this.hideOverlay(startOverlay);
     this.hideOverlay(gameOverOverlay);
+    pauseButton.textContent = "Pause";
+    pauseButton.classList.remove("is-paused");
+    dashButton.classList.remove("is-paused");
+    focusButton.classList.remove("is-paused");
     this.lastTime = performance.now();
     cancelAnimationFrame(this.animationFrame);
     this.animationFrame = requestAnimationFrame((time) => this.loop(time));
@@ -551,12 +616,28 @@ class Game {
     const deltaTime = Math.min((timestamp - this.lastTime) / 1000, 0.033);
     this.lastTime = timestamp;
 
-    if (this.running) {
+    if (this.running && !this.paused) {
       this.update(deltaTime);
     }
 
     this.draw();
     this.animationFrame = requestAnimationFrame((time) => this.loop(time));
+  }
+
+  togglePause() {
+    if (!this.running || this.over) {
+      return;
+    }
+
+    this.paused = !this.paused;
+    pauseButton.textContent = this.paused ? "Resume" : "Pause";
+    pauseButton.classList.toggle("is-paused", this.paused);
+    dashButton.classList.toggle("is-paused", this.paused);
+    focusButton.classList.toggle("is-paused", this.paused);
+
+    if (this.paused) {
+      vibrate(18);
+    }
   }
 
   update(deltaTime) {
@@ -664,6 +745,7 @@ class Game {
     this.nextGravityShift = this.randomGravityInterval();
     this.createBurst(this.player.x, this.player.y, "rgba(116, 242, 255, ALPHA)");
     this.sound.playGravityShift();
+    vibrate(12);
   }
 
   directionToVector(direction) {
@@ -767,6 +849,7 @@ class Game {
         this.dashCharges = Math.min(3, this.dashCharges + 1);
         this.createBurst(core.x, core.y, "rgba(156, 140, 255, ALPHA)");
         this.sound.playCorePickup();
+        vibrate(10);
         this.checkLevelObjective();
         return false;
       }
@@ -791,6 +874,7 @@ class Game {
 
         this.createBurst(powerUp.x, powerUp.y, powerUp.type === "shield" ? "rgba(116, 242, 255, ALPHA)" : "rgba(255, 197, 109, ALPHA)");
         this.sound.playPowerUp();
+        vibrate(powerUp.type === "shield" ? [14, 22, 14] : [10, 18, 10]);
         return false;
       }
 
@@ -812,6 +896,7 @@ class Game {
     this.hunters = [];
     this.createBurst(this.player.x, this.player.y, "rgba(152, 255, 203, ALPHA)");
     this.sound.playLevelUp();
+    vibrate([20, 30, 20]);
   }
 
   tryDash() {
@@ -844,6 +929,7 @@ class Game {
     this.player.dash(directionX, directionY);
     this.createBurst(this.player.x, this.player.y, "rgba(255, 197, 109, ALPHA)");
     this.sound.playDash();
+    vibrate(14);
   }
 
   tryFocus() {
@@ -857,6 +943,7 @@ class Game {
     this.focusCooldown = 4;
     this.createBurst(this.player.x, this.player.y, "rgba(116, 242, 255, ALPHA)");
     this.sound.playFocus();
+    vibrate([12, 20, 24]);
   }
 
   checkCollisions() {
@@ -892,10 +979,12 @@ class Game {
       });
       this.createBurst(this.player.x, this.player.y, "rgba(116, 242, 255, ALPHA)");
       this.sound.playShieldBreak();
+      vibrate([18, 18, 18]);
       return;
     }
 
     this.createBurst(this.player.x, this.player.y, "rgba(255, 111, 145, ALPHA)");
+    vibrate([50, 35, 50]);
     this.endGame();
   }
 
@@ -1036,6 +1125,19 @@ class Game {
       this.context.arc(this.player.x, this.player.y, this.player.radius + 10, 0, Math.PI * 2);
       this.context.stroke();
     }
+
+    if (this.paused) {
+      this.context.fillStyle = "rgba(2, 6, 18, 0.45)";
+      this.context.fillRect(0, 0, this.bounds.width, this.bounds.height);
+      this.context.fillStyle = "rgba(244, 247, 255, 0.92)";
+      this.context.font = '700 28px "Syne"';
+      this.context.textAlign = "center";
+      this.context.fillText("Paused", this.bounds.width / 2, this.bounds.height / 2);
+      this.context.font = '500 14px "Space Grotesk"';
+      this.context.fillStyle = "rgba(244, 247, 255, 0.7)";
+      this.context.fillText("Tap pause again to continue", this.bounds.width / 2, this.bounds.height / 2 + 28);
+      this.context.textAlign = "start";
+    }
   }
 
   updateHud() {
@@ -1066,13 +1168,133 @@ function resizeCanvas() {
   game.draw();
 }
 
+function setupTouchControls(input) {
+  let activePointerId = null;
+
+  const resetJoystick = () => {
+    input.clearVirtualMovement();
+    joystickThumb.style.transform = "translate(0px, 0px)";
+    activePointerId = null;
+  };
+
+  const updateJoystick = (clientX, clientY) => {
+    const rect = joystickPad.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const maxRadius = rect.width * 0.32;
+    const rawX = clientX - centerX;
+    const rawY = clientY - centerY;
+    const distance = Math.hypot(rawX, rawY);
+    const scale = distance > maxRadius ? maxRadius / distance : 1;
+    const x = rawX * scale;
+    const y = rawY * scale;
+    const threshold = maxRadius * 0.35;
+
+    joystickThumb.style.transform = `translate(${x}px, ${y}px)`;
+    input.setVirtualKey("arrowleft", x < -threshold);
+    input.setVirtualKey("arrowright", x > threshold);
+    input.setVirtualKey("arrowup", y < -threshold);
+    input.setVirtualKey("arrowdown", y > threshold);
+  };
+
+  joystickPad.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    activePointerId = event.pointerId;
+    joystickPad.setPointerCapture(event.pointerId);
+    updateJoystick(event.clientX, event.clientY);
+  });
+
+  joystickPad.addEventListener("pointermove", (event) => {
+    if (event.pointerId !== activePointerId) {
+      return;
+    }
+
+    event.preventDefault();
+    updateJoystick(event.clientX, event.clientY);
+  });
+
+  const releaseJoystick = (event) => {
+    if (event.pointerId !== activePointerId) {
+      return;
+    }
+
+    resetJoystick();
+  };
+
+  joystickPad.addEventListener("pointerup", releaseJoystick);
+  joystickPad.addEventListener("pointercancel", releaseJoystick);
+  joystickPad.addEventListener("lostpointercapture", resetJoystick);
+
+  const bindActionButton = (button, code) => {
+    button.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      input.queuePress(code);
+    });
+  };
+
+  bindActionButton(dashButton, "shift");
+  bindActionButton(focusButton, " ");
+}
+
+function setupMouseControls(input, gameInstance) {
+  let pointerActive = false;
+
+  const getCanvasPoint = (event) => {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    };
+  };
+
+  canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+
+  canvas.addEventListener("mousedown", (event) => {
+    if (event.button === 0) {
+      pointerActive = true;
+      input.setPointerState(getCanvasPoint(event));
+    } else if (event.button === 2) {
+      event.preventDefault();
+      input.queuePress("shift");
+    } else if (event.button === 1) {
+      event.preventDefault();
+      input.queuePress(" ");
+    }
+  });
+
+  canvas.addEventListener("mousemove", (event) => {
+    if (!pointerActive) {
+      return;
+    }
+
+    input.setPointerState(getCanvasPoint(event));
+  });
+
+  const clearMousePointer = () => {
+    pointerActive = false;
+    input.clearPointerState();
+  };
+
+  canvas.addEventListener("mouseup", clearMousePointer);
+  canvas.addEventListener("mouseleave", clearMousePointer);
+
+  window.addEventListener("keydown", (event) => {
+    if (event.key.toLowerCase() === "p" || event.key === "Escape") {
+      gameInstance.togglePause();
+    }
+  });
+}
+
 const game = new Game(ctx, {
   width: canvas.clientWidth || 900,
   height: canvas.clientHeight || 600,
 });
 
+setupTouchControls(game.input);
+setupMouseControls(game.input, game);
 startButton.addEventListener("click", () => game.start());
 restartButton.addEventListener("click", () => game.start());
+pauseButton.addEventListener("click", () => game.togglePause());
 window.addEventListener("resize", resizeCanvas);
 
 resizeCanvas();
