@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gravity Panic</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <div class="hud">
+      <div class="hud__brand">
+        <p class="eyebrow">Canvas Survival</p>
+        <h1>Gravity Panic</h1>
+      </div>
+      <div class="hud__stats">
+        <div class="stat-card">
+          <span class="stat-label">Time</span>
+          <strong id="score">0.0s</strong>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Best</span>
+          <strong id="best-score">0.0s</strong>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Gravity</span>
+          <strong id="gravity-label">Down</strong>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Cores</span>
+          <strong id="core-count">0</strong>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Level</span>
+          <strong id="level-label">1</strong>
+        </div>
+        <div class="stat-card stat-card--wide">
+          <span class="stat-label">Objective</span>
+          <strong id="objective-label">Collect 3 cores</strong>
+        </div>
+      </div>
+    </div>
+
+    <main class="game-panel">
+      <canvas id="gameCanvas" aria-label="Gravity survival game canvas"></canvas>
+
+      <section class="overlay overlay--visible" id="start-overlay">
+        <div class="glass-card">
+          <p class="eyebrow">Stay alive as reality tilts</p>
+          <h2>Survive the gravity storm</h2>
+          <p class="overlay-copy">
+            Move with <span>WASD</span> or <span>Arrow Keys</span>, dodge incoming debris,
+            grab energy cores, <span>Shift</span> to dash, and hit <span>Space</span>
+            for a short focus burst when things get crowded. Watch for hunter drones
+            and power-up drops as each level escalates.
+          </p>
+          <button id="start-button" class="glow-button">Start Run</button>
+        </div>
+      </section>
+
+      <section class="overlay" id="game-over-overlay">
+        <div class="glass-card glass-card--danger">
+          <p class="eyebrow">Reality collapsed</p>
+          <h2>Run Over</h2>
+          <p class="overlay-copy" id="final-score">You survived 0.0 seconds.</p>
+          <button id="restart-button" class="glow-button glow-button--danger">Restart</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
