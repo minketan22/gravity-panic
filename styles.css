@@ -27,6 +27,7 @@ body {
     radial-gradient(circle at bottom right, rgba(255, 111, 145, 0.15), transparent 28%),
     linear-gradient(135deg, var(--bg-1), var(--bg-2));
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body::before,
@@ -100,6 +101,13 @@ body::after {
   min-width: 220px;
 }
 
+.stat-card--button {
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .stat-card strong.ready {
   color: var(--amber);
 }
@@ -129,9 +137,100 @@ body::after {
   width: 100%;
   height: 100%;
   display: block;
+  touch-action: none;
   background:
     radial-gradient(circle at 50% 30%, rgba(116, 242, 255, 0.1), transparent 40%),
     linear-gradient(180deg, rgba(8, 11, 30, 0.95), rgba(4, 6, 16, 1));
+}
+
+.touch-controls {
+  position: absolute;
+  inset: auto 18px 18px 18px;
+  display: none;
+  justify-content: space-between;
+  align-items: end;
+  gap: 18px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.touch-joystick,
+.touch-actions {
+  pointer-events: auto;
+}
+
+.touch-label {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(244, 247, 255, 0.7);
+}
+
+.joystick-pad {
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  border: 1px solid rgba(116, 242, 255, 0.28);
+  background:
+    radial-gradient(circle at 50% 35%, rgba(116, 242, 255, 0.2), rgba(8, 13, 31, 0.72) 60%),
+    rgba(6, 9, 22, 0.86);
+  backdrop-filter: blur(10px);
+  box-shadow: inset 0 0 24px rgba(116, 242, 255, 0.08);
+  position: relative;
+  touch-action: none;
+}
+
+.joystick-thumb {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 54px;
+  height: 54px;
+  margin-left: -27px;
+  margin-top: -27px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(116, 242, 255, 0.95), rgba(152, 255, 203, 0.92));
+  box-shadow: 0 0 28px rgba(116, 242, 255, 0.38);
+  transition: transform 80ms ease-out;
+}
+
+.touch-actions {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+}
+
+.touch-button {
+  min-width: 92px;
+  min-height: 92px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 28px;
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  background: rgba(8, 13, 31, 0.8);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+  touch-action: manipulation;
+}
+
+.touch-button--dash {
+  background: linear-gradient(180deg, rgba(255, 197, 109, 0.28), rgba(8, 13, 31, 0.88));
+}
+
+.touch-button--focus {
+  background: linear-gradient(180deg, rgba(116, 242, 255, 0.22), rgba(8, 13, 31, 0.88));
+}
+
+.touch-button:active {
+  transform: scale(0.97);
+}
+
+.touch-button.is-paused,
+.stat-card--button.is-paused {
+  border-color: rgba(255, 197, 109, 0.5);
+  box-shadow: 0 0 24px rgba(255, 197, 109, 0.2);
 }
 
 .overlay {
@@ -236,5 +335,57 @@ body::after {
 
   .glass-card {
     padding: 24px 20px;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .touch-controls {
+    display: flex;
+  }
+
+  .overlay-copy {
+    font-size: 0.97rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .touch-controls {
+    inset: auto 12px 12px 12px;
+    gap: 12px;
+  }
+
+  .joystick-pad {
+    width: 116px;
+    height: 116px;
+  }
+
+  .joystick-thumb {
+    width: 48px;
+    height: 48px;
+    margin-left: -24px;
+    margin-top: -24px;
+  }
+
+  .touch-actions {
+    gap: 10px;
+  }
+
+  .touch-button {
+    min-width: 82px;
+    min-height: 82px;
+    border-radius: 24px;
+  }
+
+  .hud__brand h1 {
+    font-size: 1.75rem;
+  }
+
+  .stat-label {
+    font-size: 0.68rem;
+  }
+
+  .stat-card strong,
+  .stat-card--button {
+    font-size: 0.95rem;
   }
 }
